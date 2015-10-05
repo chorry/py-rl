@@ -3,7 +3,7 @@ from pygame.font import SysFont
 import random
 from pygame.locals import *
 from sprites import *
-
+from players import *
 from singleton import Singleton
 
 SCREEN_H = 1024
@@ -84,11 +84,12 @@ class BattleScene(Scene):
         self.sequence = []
         index = 0
         for e in self.entities:
-            if e['type'] == 'player':
+            if e.type == 'player':
                 self.totalPlayers = self.totalPlayers + 1
-            if e['type'] == 'enemy':
+            if e.type == 'monster':
                 self.totalEnemies = self.totalEnemies + 1
-            self.sequence.append( { "index": index, "initiative": e['initiative'] } )
+
+            self.sequence.append( { "index": index, "initiative": e.initiative } )
             index = index + 1
 
         self.sequence = sorted(self.sequence, key = lambda k: k['initiative'], reverse=True)
@@ -117,7 +118,7 @@ class BattleScene(Scene):
                                  playerBoxWidth, playerBoxHeight),
                              1)
             # draw active player border
-            text = self.fontPlayer.render( self.entities[seq['index']]['name'], True, (255, 255, 255))
+            text = self.fontPlayer.render( self.entities[seq['index']].name, True, (255, 255, 255))
             screen.blit(text, (xLeft + 1, yLeft + playerBoxHeight * .8))
             idx = idx + 1
 
@@ -159,7 +160,7 @@ class BattleScene(Scene):
                                  playerBoxWidth, playerBoxHeight),
                              1)
             # draw active player border
-            text = self.fontPlayer.render(o['name'], True, (255, 255, 255))
+            text = self.fontPlayer.render(o.name, True, (255, 255, 255))
             screen.blit(text, (xLeft + 1, yLeft + playerBoxHeight * .8))
             idx = idx + 1
         # draw players name
@@ -187,7 +188,7 @@ class BattleScene(Scene):
                              1)
             # draw active player border
 
-            text = self.fontPlayer.render(o['name'], True, (255, 255, 255))
+            text = self.fontPlayer.render(o.name, True, (255, 255, 255))
             screen.blit(text, (xLeft + 1, yLeft + playerBoxHeight * .8))
 
             idx = idx + 1
@@ -195,13 +196,6 @@ class BattleScene(Scene):
     #draw intiative sequence
     def drawInterface(self, screen):
         return
-        idx = 0
-        for i in self.sequence:
-            if self.getActiveCharacter() == i:
-                print "ACTIVE:",
-            print self.entities[i['index']]['name'],
-            idx = idx + 1
-        print "\n"
 
     def handle_events(self, events):
         #wait for combat actions
@@ -219,15 +213,17 @@ class BattleScene(Scene):
         pass
 
     def render(self, screen):
-        enemies = players = []
+        enemies = []
+        players = []
         for e in self.entities:
-            if e['type'] == 'player':
+            print e.type
+            if e.type == 'player':
                 players.append(e)
-            if e['type'] == 'enemy':
+            if e.type == 'monster':
                 enemies.append(e)
 
         self.drawPlayer(screen, players)
-        self.drawPlayer(screen, enemies)
+        self.drawEnemy(screen, enemies)
 
         self.drawInterface(screen)
         self.drawSequence(screen)
@@ -239,7 +235,7 @@ class BattleScene(Scene):
                                  30, 500,
                                  500, 100),
                              )
-        text = self.fontPlayer.render("Current active is %s" % self.getActiveCharacter()['name'], True, (255, 255, 255))
+        text = self.fontPlayer.render("Current active is %s" % self.getActiveCharacter().name, True, (255, 255, 255))
         screen.blit(text, (30, 500))
         #Render player
         #Render enemy
@@ -436,6 +432,34 @@ class Map(object):
         return True
 
 
+def getBattleEntities():
+    t1 = PlayerMage()
+    t1.name = 'TankTwo'
+    t1.position = 2
+    t1.initiative = 6
+
+    t2 = PlayerMage()
+    t2.name = 'TankOne'
+    t2.position = 1
+    t2.initiative = 2
+
+    h1 = PlayerMage()
+    h1.name = 'TankOne'
+    h1.position = 3
+    h1.initiative = 4
+
+    e1 = MonsterZombie()
+    e1.name = 'EnemyOne'
+    e1.position = 1
+    e1.initiative = 5
+
+    e2 = MonsterZombie()
+    e2.name = 'EnemyTwo'
+    e2.position = 2
+    e2.initiative = 3
+
+    return [t1,t2,h1,e1,e2]
+
 def main():
     pygame.init()
     screen = pygame.display.set_mode((SCREEN_W, SCREEN_H))
@@ -467,14 +491,9 @@ def main():
                 if event.key == pygame.K_F2:
                     manager.go_to(DungeonScene(0))
                 if event.key == pygame.K_F3:
+                    listB = getBattleEntities()
                     manager.go_to(BattleScene(
-                        [
-                        {'type': 'player', 'name':'TankTwo', 'position' : 2, 'initiative': 6},
-                        {'type': 'player', 'name':'TankOne', 'position' : 1, 'initiative': 2},
-                        {'type': 'player', 'name':'HealOne', 'position' : 3, 'initiative': 4},
-                        {'type': 'enemy','name':'EnemyOne', 'position' : 1, 'initiative': 5},
-                        {'type': 'enemy', 'name':'EnemyTwo', 'position' : 2, 'initiative': 3}
-                        ]
+                        listB
                     ))
 
 if __name__ == "__main__":
