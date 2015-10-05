@@ -61,8 +61,14 @@ class Map(object):
 
     def generateRoomIfNotGenerated(self, position):
         col, row = position
-        self.map[col][row] = int (random.choice("234"))
+        if self.map[col][row] == BLOCK_DARKNESS:
+            self.map[col][row] = int (random.choice("234"))
 
+    def isTraversable(self, position):
+        x, y = position
+        if self.map[x][y] == BLOCK_WALL:
+            return False
+        return True
 
 
 class Game(object):
@@ -75,10 +81,12 @@ class Game(object):
         self.clock = pygame.time.Clock()
         self.direction = 0
         self.position = (PLAYER_START_X, PLAYER_START_Y)
-        print self.position
+
         self.map = Map()
+        self.map.map[PLAYER_START_X][PLAYER_START_Y] = BLOCK_FLOOR
+        self.redraw_map_tiles()
         self.draw_PlayerTile()
-        #self.map.clear_block(self.position)
+
         self.init_text()
         self.run()
 
@@ -98,6 +106,7 @@ class Game(object):
 
     def draw_PlayerTile(self):
         self.screen.blit(self.player, Map.convertTileToCoords( self.position) )
+        print "Drawing player at %s, %s" % (self.position)
         pygame.display.flip()
 
     def move(self, hor, vert):
@@ -109,14 +118,10 @@ class Game(object):
         if x > TILES_ACROSS  or x < 0 or y > TILES_DOWN  or y < 0:
             return
 
-        self.map.generateRoomIfNotGenerated(self.position)
-        #redraw tile we're moving from
-        self.textBuffer.append("Moving from %s,%s to %s,%s" % (x-hor, y-vert, x, y))
-
-        #self.map.clear_block( self.position )
-
-        self.position = (x, y)
-        self.screen.blit(self.bg, (0, 0))
+        self.map.generateRoomIfNotGenerated( (x, y) )
+        if self.map.isTraversable((x,y)):
+            self.position = (x, y)
+            self.screen.blit(self.bg, (0, 0))
 
         self.redraw_map_tiles()
         #TRANSPARENCY IS SOMEWHERE AROUND
