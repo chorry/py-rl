@@ -27,7 +27,24 @@ BLOCK_FLOOR = 2
 BLOCK_WALL = 3
 BLOCK_TRAP = 4
 
-pygame.init()
+class Scene(object):
+    def __init__(self):
+        pass
+
+    def render(self, screen):
+        raise NotImplementedError
+
+    def update(self):
+        raise NotImplementedError
+
+    def handle_events(self, events):
+        raise NotImplementedError
+
+class DungeonScene(Scene):
+    def __init__(self):
+        super(DungeonScene, self).__init__()
+
+        pass
 
 class Map(object):
     def __init__(self):
@@ -85,8 +102,8 @@ class Map(object):
 
 
 class Game(object):
-    def __init__(self):
-        self.screen = pygame.display.set_mode((SCREEN_W, SCREEN_H))
+    def __init__(self, screen):
+        self.screen = screen
         #load sprites from sheet
         self.loadTiles()
         self.textBuffer = []
@@ -131,8 +148,9 @@ class Game(object):
         if x > TILES_ACROSS  or x < 0 or y > TILES_DOWN  or y < 0:
             return
 
-        self.map.generateRoomsAroundCoords( (x, y) )
+        self.map.generateRoomIfNotGenerated( (x,y) )
         if self.map.isTraversable((x,y)):
+            self.map.generateRoomsAroundCoords( (x, y) )
             self.position = (x, y)
             self.screen.blit(self.bg, (0, 0))
 
@@ -195,8 +213,10 @@ class Game(object):
 
 
 def main():
+    pygame.init()
+    screen = pygame.display.set_mode((SCREEN_W, SCREEN_H))
     while 1:
-        game = Game()
+        game = Game(screen)
 
 
 if __name__ == "__main__":
