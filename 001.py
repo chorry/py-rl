@@ -77,7 +77,7 @@ class BattleScene(Scene):
         self.totalEnemies = 0
 
         self.buildInitiativeSequence()
-        self.activeCharacter = 0
+        self.activeCharacterIndex = 0
 
 
     def buildInitiativeSequence(self):
@@ -93,24 +93,53 @@ class BattleScene(Scene):
 
         self.sequence = sorted(self.sequence, key = lambda k: k['initiative'], reverse=True)
 
+
+    def drawSequence(self, screen):
+        startX = 30
+        startY = 200
+        offsetX = 10
+        playerBoxWidth = 60
+        playerBoxHeight = 30
+        idx = 0
+
+        color = (50, 100, 100)
+        activeColor = (200, 10, 10)
+
+        for seq in self.sequence:
+            useColor = color
+
+            if idx == self.activeCharacterIndex:
+                useColor = activeColor
+            xLeft, yLeft = (startX + playerBoxWidth * idx + offsetX * idx, startY)
+            pygame.draw.rect(screen, useColor,
+                             pygame.Rect(
+                                 xLeft, yLeft,
+                                 playerBoxWidth, playerBoxHeight),
+                             1)
+            # draw active player border
+            text = self.fontPlayer.render( self.entities[seq['index']]['name'], True, (255, 255, 255))
+            screen.blit(text, (xLeft + 1, yLeft + playerBoxHeight * .8))
+            idx = idx + 1
+
+
     def getActiveCharacter(self):
-        return self.entities[ self.sequence[self.activeCharacter]['index'] ]
+        return self.entities[ self.sequence[self.activeCharacterIndex]['index'] ]
 
     def getPrevActiveCharacter(self):
-        self.activeCharacter = self.activeCharacter - 1
-        if self.activeCharacter <  0:
-            self.activeCharacter = (self.totalPlayers + self.totalEnemies) - 1
-        return self.sequence[self.activeCharacter]
+        self.activeCharacterIndex = self.activeCharacterIndex - 1
+        if self.activeCharacterIndex <  0:
+            self.activeCharacterIndex = (self.totalPlayers + self.totalEnemies) - 1
+        return self.sequence[self.activeCharacterIndex]
 
     def getNextActiveCharacter(self):
-        self.activeCharacter = self.activeCharacter + 1
-        if self.activeCharacter >=  (self.totalPlayers + self.totalEnemies):
-            self.activeCharacter = 0
-        return self.sequence[self.activeCharacter]
+        self.activeCharacterIndex = self.activeCharacterIndex + 1
+        if self.activeCharacterIndex >=  (self.totalPlayers + self.totalEnemies):
+            self.activeCharacterIndex = 0
+        return self.sequence[self.activeCharacterIndex]
 
     def drawPlayer(self, screen, obj):
         startX = 30
-        startY = 100
+        startY = 300
         offsetX = 10
         playerBoxWidth = 50
         playerBoxHeight = 80
@@ -137,7 +166,7 @@ class BattleScene(Scene):
 
     def drawEnemy(self, screen, obj):
         startX = 330
-        startY = 100
+        startY = 300
         offsetX = 10
         playerBoxWidth = 50
         playerBoxHeight = 80
@@ -201,6 +230,7 @@ class BattleScene(Scene):
         self.drawPlayer(screen, enemies)
 
         self.drawInterface(screen)
+        self.drawSequence(screen)
 
         print self.getActiveCharacter()
 
