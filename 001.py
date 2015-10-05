@@ -54,6 +54,67 @@ class Scene(object):
     def handle_events(self, events):
         raise NotImplementedError
 
+#states:
+class InteractiveElementHandler(object):
+    def __init__(self, obj):
+        print "saving", obj
+        self.obj = obj
+        self.handlers = [ SkillHandler(obj) ]
+
+    def eligibleFor(self, object):
+        print "check eligibility for %s" % object
+        for handler in self.handlers:
+            if id(self.obj) == id(object):
+                return True
+        return False
+
+    def handle(self, object):
+        for handler in self.handlers:
+            if self.eligibleFor(object):
+                print "Handle from InteractiveElementHandler %s, %s, %s" % ( id(self.obj), id(object), self.obj.name )
+                handler.handle()
+
+
+class SkillHandler(object):
+    def __init__(self, skill):
+        self.skill = skill
+        self.objectType = skill.appliesTo()
+        self.states = [ 'PICK_TARGET', 'APPLY_EFFECT', 'ADD_TO_STACK' ]
+        self.state = 'PICK_TARGET'
+
+    def handle(self):
+        if self.state == 'PICK_TARGET':
+            print "Pick target for a skill"
+            #scene.setTargetsForPicking(targets)
+        if self.state == 'APPLY_EFFECT':
+            print "Display effect animation"
+        if self.state == 'ADD_TO_STACK':
+            print "Add effect to stack"
+
+        print "handling from skillHandler"
+        #pickTarget if eligible
+        #applySkillEffect
+        #if duration > 0 : add to effect stack
+        pass
+
+    def pickTarget(self):
+        if self.skill.maxTargets() < 100:
+            #register target picker
+            pass
+        pass
+
+    def applySkillEffect(self):
+        pass
+
+    def eligibleFor(self, object):
+        return object.appliesTo() == self.objectType
+
+    def handle_events(self, events):
+        for event in events:
+            if event.type == pygame.MOUSEBUTTONDOWN:
+                print "Got mouse down"
+                self.handle_mouse(event)
+
 class SceneMananger(object):
     def __init__(self):
         self.go_to(
@@ -73,7 +134,7 @@ class BattleScene(Scene):
 
         self.screen = DisplayDevice.Instance().getScreen()
         self.eraseScreen(self.screen)
-
+        self.handlers = {}
 
         self.totalPlayers = 0
         self.totalEnemies = 0
@@ -141,6 +202,7 @@ class BattleScene(Scene):
         return self.sequence[self.activeCharacterIndex]
 
     def drawPlayer(self, screen, obj):
+        self.interactiveElements['player'] = []
         startX = 30
         startY = 300
         offsetX = 10
@@ -156,18 +218,22 @@ class BattleScene(Scene):
             if o == self.getActiveCharacter():
                 useColor = activeColor
             xLeft, yLeft = (startX + playerBoxWidth * idx + offsetX * idx, startY)
-            pygame.draw.rect(screen, useColor,
-                             pygame.Rect(
-                                 xLeft, yLeft,
-                                 playerBoxWidth, playerBoxHeight),
-                             1)
+            rect = pygame.Rect(xLeft, yLeft,playerBoxWidth, playerBoxHeight)
+            pygame.draw.rect(screen, useColor, rect,1)
+            self.interactiveElements['player'].append(
+                {
+                    'collision': rect, 'object': o
+                }
+            )
+
             # draw active player border
             text = self.fontPlayer.render(o.name, True, (255, 255, 255))
             screen.blit(text, (xLeft + 1, yLeft + playerBoxHeight * .8))
             idx = idx + 1
-        # draw players name
+            # draw players name
 
     def drawEnemy(self, screen, obj):
+        self.interactiveElements['monsters'] = []
         startX = 330
         startY = 300
         offsetX = 10
@@ -183,11 +249,13 @@ class BattleScene(Scene):
             if o == self.getActiveCharacter():
                 useColor = activeColor
             xLeft, yLeft = (startX + playerBoxWidth * idx + offsetX * idx, startY)
-            pygame.draw.rect(screen, useColor,
-                             pygame.Rect(
-                                 xLeft, yLeft,
-                                 playerBoxWidth, playerBoxHeight),
-                             1)
+            rect = pygame.Rect(xLeft, yLeft,playerBoxWidth, playerBoxHeight)
+            pygame.draw.rect(screen, useColor,rect,1)
+            self.interactiveElements['monsters'].append(
+                {
+                    'collision': rect, 'object': o
+                }
+            )
             # draw active player border
 
             text = self.fontPlayer.render(o.name, True, (255, 255, 255))
@@ -200,7 +268,7 @@ class BattleScene(Scene):
         self.interactiveElements['skillButtons'] = []
         idx = 0
         color = (100,100,100)
-        xLeft = 300
+        xLeft = 30
         yLeft = 400
         skillBoxWidth = 80
         skillBoxHeight = 40
@@ -221,16 +289,22 @@ class BattleScene(Scene):
                     'object': skill
                 }
             )
+
+            if id(skill) not in self.handlers:
+                h = InteractiveElementHandler(skill)
+                self.handlers[id(skill)] = h
+
             text = self.fontPlayer.render(skill.name, True, (255, 255, 255))
             screen.blit(text, (xLeft + 1, yLeft + skillBoxHeight * .6))
             idx = idx + 1
 
-    def drawInterface(self, screen):
-        return
-
     def handle_events(self, events):
         #wait for combat actions
         for event in events:
+            #for handler in self.handlers:
+            #    if handler.handle(event): #intercept event by handler, if possible
+            #        return
+
             if hasattr(event, 'key'):
                 if event.type == pygame.KEYDOWN:
                     if event.key == K_LEFT: self.getPrevActiveCharacter()
@@ -247,6 +321,8 @@ class BattleScene(Scene):
             for obj in self.interactiveElements[objTypes]:
                 if obj['collision'].collidepoint(event.pos):
                     print "Collision detected at %s with %s" % (event.pos , obj['object'])
+                    for k, handler in self.handlers.iteritems() :
+                        handler.handle(obj['object'])
 
     def update(self):
         pass
@@ -263,7 +339,6 @@ class BattleScene(Scene):
         self.drawPlayer(screen, players)
         self.drawEnemy(screen, enemies)
 
-        self.drawInterface(screen)
         self.drawSequence(screen)
         self.drawEntitySkills(screen,  self.getActiveCharacter() )
 
@@ -393,7 +468,6 @@ class DungeonScene(Scene):
         self.textBuffer = []
 
 
-
 class TitleScene(object):
     def __init__(self):
         super(TitleScene, self).__init__()
@@ -412,6 +486,7 @@ class TitleScene(object):
         for e in events:
             if e.type == KEYDOWN and e.key == K_SPACE:
                 self.manager.go_to(DungeonScene(0))
+
 
 class Map(object):
     def __init__(self):

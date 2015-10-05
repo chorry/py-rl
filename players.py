@@ -39,6 +39,8 @@ class Skill(object):
 
     def appliesTo(self):
         raise NotImplementedError
+    def maxTargets(self):
+        raise NotImplementedError
     def getName(self):
         return self.name
     def getEffect(self):
@@ -55,6 +57,8 @@ class SingleTargetSkill(Skill):
         super(SingleTargetSkill, self).__init__()
         pass
     def appliesTo(self):
+        return 'monster'
+    def maxTargets(self):
         return 1
 
 class AoeSkill(Skill):
@@ -63,6 +67,8 @@ class AoeSkill(Skill):
         pass
 
     def appliesTo(self):
+        return 'monster'
+    def maxTargets(self):
         return 100
 
 class MagicMissile(SingleTargetSkill):
