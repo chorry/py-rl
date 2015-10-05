@@ -29,10 +29,22 @@ BLOCK_FLOOR = 2
 BLOCK_WALL = 3
 BLOCK_TRAP = 4
 
+
+@Singleton
+class DisplayDevice:
+    def setScreen(self, screen):
+        self.screen = screen
+
+    def getScreen(self):
+        return self.screen
+
 class Scene(object):
     def __init__(self):
         pass
 
+    def eraseScreen(self, screen):
+        screen.fill( (0,0,0) )
+        pass
     def render(self, screen):
         raise NotImplementedError
 
@@ -50,13 +62,160 @@ class SceneMananger(object):
         self.scene = scene
         self.scene.manager = self
 
-@Singleton
-class DisplayDevice:
-    def setScreen(self, screen):
-        self.screen = screen
+class BattleScene(Scene):
+    def __init__(self, entities):
+        super(BattleScene, self).__init__()
+        self.entities = entities
 
-    def getScreen(self):
-        return self.screen
+        self.fontPlayer = pygame.font.SysFont("Arial",13)
+
+        self.screen = DisplayDevice.Instance().getScreen()
+        self.eraseScreen(self.screen)
+
+
+        self.totalPlayers = 0
+        self.totalEnemies = 0
+
+        self.buildInitiativeSequence()
+        self.activeCharacter = 0
+
+
+    def buildInitiativeSequence(self):
+        self.sequence = []
+        index = 0
+        for e in self.entities:
+            if e['type'] == 'player':
+                self.totalPlayers = self.totalPlayers + 1
+            if e['type'] == 'enemy':
+                self.totalEnemies = self.totalEnemies + 1
+            self.sequence.append( { "index": index, "initiative": e['initiative'] } )
+            index = index + 1
+
+        self.sequence = sorted(self.sequence, key = lambda k: k['initiative'], reverse=True)
+
+    def getActiveCharacter(self):
+        return self.entities[ self.sequence[self.activeCharacter]['index'] ]
+
+    def getPrevActiveCharacter(self):
+        self.activeCharacter = self.activeCharacter - 1
+        if self.activeCharacter <  0:
+            self.activeCharacter = (self.totalPlayers + self.totalEnemies) - 1
+        return self.sequence[self.activeCharacter]
+
+    def getNextActiveCharacter(self):
+        self.activeCharacter = self.activeCharacter + 1
+        if self.activeCharacter >=  (self.totalPlayers + self.totalEnemies):
+            self.activeCharacter = 0
+        return self.sequence[self.activeCharacter]
+
+    def drawPlayer(self, screen, obj):
+        startX = 30
+        startY = 100
+        offsetX = 10
+        playerBoxWidth = 50
+        playerBoxHeight = 80
+        idx = 0
+
+        color = (50, 100, 100)
+        activeColor = (200, 10, 10)
+
+        for o in obj:
+            useColor = color
+            if o == self.getActiveCharacter():
+                useColor = activeColor
+            xLeft, yLeft = (startX + playerBoxWidth * idx + offsetX * idx, startY)
+            pygame.draw.rect(screen, useColor,
+                             pygame.Rect(
+                                 xLeft, yLeft,
+                                 playerBoxWidth, playerBoxHeight),
+                             1)
+            # draw active player border
+            text = self.fontPlayer.render(o['name'], True, (255, 255, 255))
+            screen.blit(text, (xLeft + 1, yLeft + playerBoxHeight * .8))
+            idx = idx + 1
+        # draw players name
+
+    def drawEnemy(self, screen, obj):
+        startX = 330
+        startY = 100
+        offsetX = 10
+        playerBoxWidth = 50
+        playerBoxHeight = 80
+        idx = 0
+
+        color = (50, 100, 100)
+        activeColor = (200, 10, 10)
+
+        for o in obj:
+            useColor = color
+            if o == self.getActiveCharacter():
+                useColor = activeColor
+            xLeft, yLeft = (startX + playerBoxWidth * idx + offsetX * idx, startY)
+            pygame.draw.rect(screen, useColor,
+                             pygame.Rect(
+                                 xLeft, yLeft,
+                                 playerBoxWidth, playerBoxHeight),
+                             1)
+            # draw active player border
+
+            text = self.fontPlayer.render(o['name'], True, (255, 255, 255))
+            screen.blit(text, (xLeft + 1, yLeft + playerBoxHeight * .8))
+
+            idx = idx + 1
+
+    #draw intiative sequence
+    def drawInterface(self, screen):
+        return
+        idx = 0
+        for i in self.sequence:
+            if self.getActiveCharacter() == i:
+                print "ACTIVE:",
+            print self.entities[i['index']]['name'],
+            idx = idx + 1
+        print "\n"
+
+    def handle_events(self, events):
+        #wait for combat actions
+        for event in events:
+            if not hasattr(event, 'key'): continue
+
+            if event.type == pygame.KEYDOWN:
+                if event.key == K_LEFT: self.getPrevActiveCharacter()
+                if event.key == K_RIGHT: self.getNextActiveCharacter()
+                if event.key == K_UP: continue
+                if event.key == K_DOWN: continue
+        pass
+
+    def update(self):
+        pass
+
+    def render(self, screen):
+        enemies = players = []
+        for e in self.entities:
+            if e['type'] == 'player':
+                players.append(e)
+            if e['type'] == 'enemy':
+                enemies.append(e)
+
+        self.drawPlayer(screen, players)
+        self.drawPlayer(screen, enemies)
+
+        self.drawInterface(screen)
+
+        print self.getActiveCharacter()
+
+        pygame.draw.rect(screen, (10,10,250),
+                          pygame.Rect(
+                                 30, 500,
+                                 500, 100),
+                             )
+        text = self.fontPlayer.render("Current active is %s" % self.getActiveCharacter()['name'], True, (255, 255, 255))
+        screen.blit(text, (30, 500))
+        #Render player
+        #Render enemy
+        #Render combat interface
+        pass
+
 
 class DungeonScene(Scene):
     def __init__(self, levelId):
@@ -94,7 +253,7 @@ class DungeonScene(Scene):
         vert = 0
         for event in events:
             if not hasattr(event, 'key'): continue
-            if event.key == K_ESCAPE: sys.exit(0)
+
             if event.type == pygame.KEYDOWN:
                 if event.key == K_LEFT: hor = -1
                 if event.key == K_RIGHT: hor = 1
@@ -259,11 +418,34 @@ def main():
         if pygame.event.get(QUIT):
             running = False
             return
+        events = pygame.event.get()
 
-        manager.scene.handle_events(pygame.event.get())
+        manager.scene.handle_events(events)
         manager.scene.update()
         manager.scene.render(screen)
         pygame.display.flip()
+
+        for event in events:
+            print "Running...", events
+            if not hasattr(event, 'key'): continue
+            if event.key == K_ESCAPE:
+                print "ESC pressed"
+                sys.exit(0)
+            if event.type == pygame.KEYDOWN:
+                if event.key == pygame.K_F1:
+                    manager.go_to(TitleScene())
+                if event.key == pygame.K_F2:
+                    manager.go_to(DungeonScene(0))
+                if event.key == pygame.K_F3:
+                    manager.go_to(BattleScene(
+                        [
+                        {'type': 'player', 'name':'TankTwo', 'position' : 2, 'initiative': 6},
+                        {'type': 'player', 'name':'TankOne', 'position' : 1, 'initiative': 2},
+                        {'type': 'player', 'name':'HealOne', 'position' : 3, 'initiative': 4},
+                        {'type': 'enemy','name':'EnemyOne', 'position' : 1, 'initiative': 5},
+                        {'type': 'enemy', 'name':'EnemyTwo', 'position' : 2, 'initiative': 3}
+                        ]
+                    ))
 
 if __name__ == "__main__":
     main()
