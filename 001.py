@@ -4,6 +4,8 @@ import random
 from pygame.locals import *
 from sprites import *
 
+from singleton import Singleton
+
 SCREEN_H = 1024
 SCREEN_W = 768
 
@@ -40,10 +42,26 @@ class Scene(object):
     def handle_events(self, events):
         raise NotImplementedError
 
-class DungeonScene(Scene):
-    def __init__(self, screen):
-        super(DungeonScene, self).__init__()
+class SceneMananger(object):
+    def __init__(self):
+        self.go_to(TitleScene())
+
+    def go_to(self, scene):
+        self.scene = scene
+        self.scene.manager = self
+
+@Singleton
+class DisplayDevice:
+    def setScreen(self, screen):
         self.screen = screen
+
+    def getScreen(self):
+        return self.screen
+
+class DungeonScene(Scene):
+    def __init__(self, levelId):
+        super(DungeonScene, self).__init__()
+        self.screen = DisplayDevice.Instance().getScreen()
         #load sprites from sheet
         self.loadTiles()
         self.textBuffer = []
@@ -54,29 +72,7 @@ class DungeonScene(Scene):
 
         self.map = Map()
         self.map.map[PLAYER_START_X][PLAYER_START_Y] = BLOCK_FLOOR
-        self.redraw_map_tiles()
-        self.draw_PlayerTile()
-
         self.init_text()
-
-    def redraw_map_tiles(self):
-        print self.map.map.__len__()
-        for row in range(TILES_ACROSS + 1):
-            for col in range(TILES_DOWN + 1):
-                if self.map.map[row][col] == BLOCK_DARKNESS:
-                    pygame.draw.rect(self.screen, BLACK, (row * TILE_W, col * TILE_H, TILE_W, TILE_H))
-                if self.map.map[row][col] == BLOCK_FLOOR:
-                    self.screen.blit(self.tileFloor, Map.convertTileToCoords( (row, col) ) )
-                if self.map.map[row][col] == BLOCK_TRAP:
-                    self.screen.blit(self.tileTrap, Map.convertTileToCoords( (row, col) ) )
-                if self.map.map[row][col] == BLOCK_WALL:
-                    self.screen.blit(self.tileWall, Map.convertTileToCoords( (row, col) ) )
-
-
-    def draw_PlayerTile(self):
-        self.screen.blit(self.player, Map.convertTileToCoords( self.position) )
-        #print "Drawing player at %s, %s" % (self.position)
-        pygame.display.flip()
 
     def move(self, hor, vert):
         x, y = self.position
@@ -111,21 +107,6 @@ class DungeonScene(Scene):
     def init_text(self):
         self.myfont = pygame.font.Font(None,15)
 
-    #TODO: add text wrapper
-    def draw_Text(self,text, coords):
-        x, y = coords
-
-        text = ""
-        for textString in self.textBuffer:
-            text += textString + ". "
-
-        label = self.myfont.render(text, 1, (255,255,255))
-
-        emptySurface =  pygame.Surface( (200,200) )
-        emptySurface.fill((0,0,0))
-        self.screen.blit(emptySurface, (x, y))
-        self.screen.blit(label, (x, y))
-        self.textBuffer = []
 
     def loadTiles(self):
         self.spriteSheet = spritesheet(spritePath)
@@ -146,13 +127,70 @@ class DungeonScene(Scene):
     def render(self, screen):
         self.draw_Text(
             self.textBuffer,
-            (300, 300)
+            (300, 300),
+            screen
         )
 
-        self.redraw_map_tiles()
+        self.redraw_map_tiles(screen)
         #TRANSPARENCY IS SOMEWHERE AROUND
-        self.draw_PlayerTile()
+        self.draw_PlayerTile(screen)
 
+    ''' Render part '''
+    def redraw_map_tiles(self, screen):
+        print self.map.map.__len__()
+        for row in range(TILES_ACROSS + 1):
+            for col in range(TILES_DOWN + 1):
+                if self.map.map[row][col] == BLOCK_DARKNESS:
+                    pygame.draw.rect(screen, BLACK, (row * TILE_W, col * TILE_H, TILE_W, TILE_H))
+                if self.map.map[row][col] == BLOCK_FLOOR:
+                    screen.blit(self.tileFloor, Map.convertTileToCoords( (row, col) ) )
+                if self.map.map[row][col] == BLOCK_TRAP:
+                    screen.blit(self.tileTrap, Map.convertTileToCoords( (row, col) ) )
+                if self.map.map[row][col] == BLOCK_WALL:
+                    screen.blit(self.tileWall, Map.convertTileToCoords( (row, col) ) )
+
+
+    def draw_PlayerTile(self, screen):
+        screen.blit(self.player, Map.convertTileToCoords( self.position) )
+        #print "Drawing player at %s, %s" % (self.position)
+
+    #TODO: add text wrapper
+    def draw_Text(self,text, coords, screen):
+        x, y = coords
+
+        text = ""
+        for textString in self.textBuffer:
+            text += textString + ". "
+
+        label = self.myfont.render(text, 1, (255,255,255))
+
+        emptySurface =  pygame.Surface( (200,200) )
+        emptySurface.fill((0,0,0))
+        screen.blit(emptySurface, (x, y))
+        screen.blit(label, (x, y))
+        self.textBuffer = []
+
+
+
+class TitleScene(object):
+    def __init__(self):
+        super(TitleScene, self).__init__()
+        self.font = pygame.font.SysFont('Arial', 56)
+        self.sfont = pygame.font.SysFont('Arial', 32)
+        print "TitleScreen"
+
+    def render(self, screen):
+        screen.fill((10, 10, 10))
+        text1 = self.font.render('> press space to start <', True, (255, 255, 255))
+        screen.blit(text1, (200, 50))
+
+    def update(self):
+        pass
+
+    def handle_events(self, events):
+        for e in events:
+            if e.type == KEYDOWN and e.key == K_SPACE:
+                self.manager.go_to(DungeonScene(0))
 
 class Map(object):
     def __init__(self):
@@ -212,17 +250,20 @@ class Map(object):
 def main():
     pygame.init()
     screen = pygame.display.set_mode((SCREEN_W, SCREEN_H))
+    DisplayDevice.Instance().setScreen(screen)
     running = True
-    scene = DungeonScene(screen)
+
+    manager = SceneMananger()
 
     while running:
         if pygame.event.get(QUIT):
             running = False
             return
 
-        scene.handle_events(pygame.event.get())
-        scene.update()
-        scene.render(screen)
-        
+        manager.scene.handle_events(pygame.event.get())
+        manager.scene.update()
+        manager.scene.render(screen)
+        pygame.display.flip()
+
 if __name__ == "__main__":
     main()
