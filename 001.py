@@ -56,7 +56,9 @@ class Scene(object):
 
 class SceneMananger(object):
     def __init__(self):
-        self.go_to(TitleScene())
+        self.go_to(
+            BattleScene( getBattleEntities() )
+        )
 
     def go_to(self, scene):
         self.scene = scene
@@ -66,7 +68,7 @@ class BattleScene(Scene):
     def __init__(self, entities):
         super(BattleScene, self).__init__()
         self.entities = entities
-
+        self.interactiveElements = {}
         self.fontPlayer = pygame.font.SysFont("Arial",13)
 
         self.screen = DisplayDevice.Instance().getScreen()
@@ -193,21 +195,58 @@ class BattleScene(Scene):
 
             idx = idx + 1
 
-    #draw intiative sequence
+    #draw availableSkills
+    def drawEntitySkills(self, screen, entity):
+        self.interactiveElements['skillButtons'] = []
+        idx = 0
+        color = (100,100,100)
+        xLeft = 300
+        yLeft = 400
+        skillBoxWidth = 80
+        skillBoxHeight = 40
+        # erase old stuff
+        pygame.draw.rect(screen, (100,0,0),
+                         pygame.Rect(
+                             xLeft, yLeft,
+                             200, 40),
+                         )
+
+        for skill in entity.skills:
+            xLeft = xLeft + skillBoxWidth * idx
+            rect = pygame.Rect(xLeft, yLeft,skillBoxWidth, skillBoxHeight)
+            pygame.draw.rect(screen, color,rect,1)
+            self.interactiveElements['skillButtons'].append(
+                {
+                    'collision': rect,
+                    'object': skill
+                }
+            )
+            text = self.fontPlayer.render(skill.name, True, (255, 255, 255))
+            screen.blit(text, (xLeft + 1, yLeft + skillBoxHeight * .6))
+            idx = idx + 1
+
     def drawInterface(self, screen):
         return
 
     def handle_events(self, events):
         #wait for combat actions
         for event in events:
-            if not hasattr(event, 'key'): continue
-
-            if event.type == pygame.KEYDOWN:
-                if event.key == K_LEFT: self.getPrevActiveCharacter()
-                if event.key == K_RIGHT: self.getNextActiveCharacter()
-                if event.key == K_UP: continue
-                if event.key == K_DOWN: continue
+            if hasattr(event, 'key'):
+                if event.type == pygame.KEYDOWN:
+                    if event.key == K_LEFT: self.getPrevActiveCharacter()
+                    if event.key == K_RIGHT: self.getNextActiveCharacter()
+                    if event.key == K_UP: continue
+                    if event.key == K_DOWN: continue
+            if event.type == pygame.MOUSEBUTTONDOWN:
+                print "Got mouse down"
+                self.handle_mouse(event)
         pass
+
+    def handle_mouse(self, event):
+        for objTypes in self.interactiveElements:
+            for obj in self.interactiveElements[objTypes]:
+                if obj['collision'].collidepoint(event.pos):
+                    print "Collision detected at %s with %s" % (event.pos , obj['object'])
 
     def update(self):
         pass
@@ -216,7 +255,6 @@ class BattleScene(Scene):
         enemies = []
         players = []
         for e in self.entities:
-            print e.type
             if e.type == 'player':
                 players.append(e)
             if e.type == 'monster':
@@ -227,8 +265,7 @@ class BattleScene(Scene):
 
         self.drawInterface(screen)
         self.drawSequence(screen)
-
-        print self.getActiveCharacter()
+        self.drawEntitySkills(screen,  self.getActiveCharacter() )
 
         pygame.draw.rect(screen, (10,10,250),
                           pygame.Rect(
@@ -322,7 +359,7 @@ class DungeonScene(Scene):
 
     ''' Render part '''
     def redraw_map_tiles(self, screen):
-        print self.map.map.__len__()
+        #print self.map.map.__len__()
         for row in range(TILES_ACROSS + 1):
             for col in range(TILES_DOWN + 1):
                 if self.map.map[row][col] == BLOCK_DARKNESS:
@@ -362,7 +399,6 @@ class TitleScene(object):
         super(TitleScene, self).__init__()
         self.font = pygame.font.SysFont('Arial', 56)
         self.sfont = pygame.font.SysFont('Arial', 32)
-        print "TitleScreen"
 
     def render(self, screen):
         screen.fill((10, 10, 10))
@@ -390,12 +426,12 @@ class Map(object):
     def clear_block(self, position):
         #column, row = self.convertTileToCoords(position)
         column, row = position
-        print "Column %s, Row %s" % (str(column), str(row))
+        #print "Column %s, Row %s" % (str(column), str(row))
         self.map[column][row] = 0
 
     def set_block(self, position, block_id):
         column, row = position
-        print "Column %s, Row %s" % (str(column), str(row))
+        #print "Column %s, Row %s" % (str(column), str(row))
         self.map[column][row] = block_id
 
     def print_ascii_map(self):
@@ -415,13 +451,11 @@ class Map(object):
     def generateRoomsAroundCoords(self, position):
         x,y = position
         possiblePos = ( (x-1,y), (x+1,y), (x,y-1), (x,y+1) )
-        print possiblePos
         for side in possiblePos:
             x,y = side
 
             if x >= 0 and x < len(self.map) \
                     and y >= 0 and y < len(self.map[x]):
-                print "make a tile for %s:%s" % (x, y)
                 self.generateRoomIfNotGenerated( (x, y) )
 
 
@@ -480,7 +514,6 @@ def main():
         pygame.display.flip()
 
         for event in events:
-            print "Running...", events
             if not hasattr(event, 'key'): continue
             if event.key == K_ESCAPE:
                 print "ESC pressed"
@@ -491,9 +524,8 @@ def main():
                 if event.key == pygame.K_F2:
                     manager.go_to(DungeonScene(0))
                 if event.key == pygame.K_F3:
-                    listB = getBattleEntities()
                     manager.go_to(BattleScene(
-                        listB
+                        getBattleEntities()
                     ))
 
 if __name__ == "__main__":
